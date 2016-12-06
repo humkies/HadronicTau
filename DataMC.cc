@@ -34,10 +34,13 @@
 
 
 
-const bool isblind = false;
-const bool doSingleMuonCS = false;
+const bool isblind = true;
+const bool doSingleMuonCS = true;
 const bool doInvDphi = false;
 const bool usegenmet = false;
+
+const double ptMin = 20.0;
+const double etaMax = 2.1;
 
 
 const char  *spec1 = "DataMC";
@@ -47,7 +50,7 @@ using namespace std;
 int main(int argc, char* argv[]) {
   if (argc < 5)
     {
-      std::cerr <<"Please give 5 arguments "<<"SubsampleName"<< " MaxEvent"<<" Startfile"<<" No. of Files to run"<<std::endl;
+      std::cerr <<"Please give 5 arguments "<<"SubsampleName"<< " MaxEvent"<<" No. of Files to run"<<" StartFile"<<std::endl;
       std::cerr <<" Valid configurations are " << std::endl;
       std::cerr <<" ./Closure TTbarInc 1000 0 1" << std::endl;
       return -1;
@@ -56,8 +59,8 @@ int main(int argc, char* argv[]) {
   // Manage arguments
   const char *subSampleName = argv[1];
   const char *Maxevent = argv[2];
-  const  char *Stratfile = argv[3];
-  const  char *Filerun = argv[4];
+  const  char *Stratfile = argv[4];
+  const  char *Filerun = argv[3];
   
 
   const  int startfile = std::atoi(Stratfile);
@@ -126,120 +129,26 @@ int main(int argc, char* argv[]) {
       if( tr->getEvtNum()-1 == 0 || tr->getEvtNum() == entries || (entries>=10 && (tr->getEvtNum()-1)%(entries/10) == 0) ) std::cout<<
 							     "\n   Processing the "<<tr->getEvtNum()-1<<"th event ..."<<std::endl;
       
-      // Internal evtWeight in the sample: default is 1.0 execept for MC samples with intrinsic weight, e.g., QCD flat sample.
-      double iniWeight = tr->getVar<double>("evtWeight");
-      double puWeight = 1.0; // currently set to be 1.0
-      
-      double stored_weight = sampleString.Contains("Data") ? 1 : tr->getVar<double>("stored_weight");
-      int sign_of_stored_weight = (stored_weight > 0) ? 1 : ((stored_weight < 0) ? -1 : 0);
-      
-      if( sign_of_stored_weight == 1 ) bh.h_cutFlow_aux->Fill("posSign", 1);
-      if( sign_of_stored_weight == -1 ) bh.h_cutFlow_aux->Fill("negSign", 1);
-      if( sign_of_stored_weight == 0 ) bh.h_cutFlow_aux->Fill("zero", 1);
-      
-      double evtWeight = iniWeight >=0 ? iniWeight * puWeight * sign_of_stored_weight : iniWeight * puWeight;
-      scaleMC = evtWeight*scaleMC;
 
-      // Get branches out directly from what stored in the tree
-      const unsigned int & run = tr->getVar<unsigned int>("run"); 
-      const unsigned int & lumi = tr->getVar<unsigned int>("lumi"); 
-      const unsigned int & event = tr->getVar<unsigned int>("event");
-      
-      if( isData && isblind && (!doSingleMuonCS || !doInvDphi) ){
-	if( run > 274240 ) continue;
-      }
-      
-      const double & genmet_tmp = tr->getVar<double>("genmet");
-      const double & genmetphi_tmp = tr->getVar<double>("genmetphi");
-      const double genmet = (&genmet_tmp) != nullptr ? tr->getVar<double>("genmet") : 0;
-      const double genmetphi = (&genmetphi_tmp) != nullptr ? tr->getVar<double>("genmetphi") : -999;
-      TLorentzVector genmetLVec;
-      if( (&genmet_tmp) != nullptr ){
-	genmetLVec.SetPtEtaPhiM(tr->getVar<double>("genmet"), 0, tr->getVar<double>("genmetphi"), 0);
-      }
-      
-      const double met = ( usegenmet && (&genmet_tmp) != nullptr )? genmet : tr->getVar<double>("met");
-      const double metphi = ( usegenmet && (&genmet_tmp) != nullptr )? genmetphi : tr->getVar<double>("metphi");
-      TLorentzVector metLVec; metLVec.SetPtEtaPhiM(met, 0, metphi, 0);
-      
-      const int nbJets = tr->getVar<int>("cntCSVS"+spec), nTops = tr->getVar<int>("nTopCandSortedCnt"+spec );
-      
-      const double MT2 = tr->getVar<double>("best_had_brJet_MT2"+spec );
-      const double HT = tr->getVar<double>("HT"+spec );
-      const int nJets = tr->getVar<int>("cntNJetsPt30Eta24"+spec );
-      const TLorentzVector mhtLVec = AnaFunctions::calcMHT(tr->getVec<TLorentzVector>("jetsLVec"), AnaConsts::pt30Arr);
-      const double MHT  = mhtLVec.Pt();
-      
-      const std::vector<double> & dPhiVec = tr->getVec<double>("dPhiVec" + spec);
-      
-      const std::vector<std::string> & TriggerNames = tr->getVec<std::string>("TriggerNames");
-      const std::vector<int> & PassTrigger = tr->getVec<int>("PassTrigger");
-     
-      if(isData)
-	{
-	  bool foundTrigger = false;
-	  for(unsigned it=0; it<TriggerNames.size(); it++)
-	    {
-	      // CS trigger
-	      if( sampleString.Contains("SingleMuon") )
-		{
-		  if( TriggerNames[it].find("HLT_Mu15_IsoVVVL_PFHT350_v") != string::npos
-		      || TriggerNames[it].find("HLT_Mu15_IsoVVVL_PFHT400_v")!= string::npos
-		      || TriggerNames[it].find("HLT_Mu15_IsoVVVL_PFHT600_v")!= string::npos 
-		      || TriggerNames[it].find("HLT_Mu15_IsoVVVL_PFHT350_PFMET50_v")!= string::npos 
-		      ||TriggerNames[it].find("HLT_Mu15_IsoVVVL_PFHT400_PFMET50_v")!= string::npos)
-		    {
-		      //if( TriggerNames[it].find("HLT_Mu15_IsoVVVL_PFHT350_v") != string::npos){
-		      if( PassTrigger[it] ) foundTrigger = true;
-		    }
-		}
 
-	      // Search Trigger
-	      if( sampleString.Contains("HTMHT") )
-		{
-		  /*
-		    if(    TriggerNames[it].find("HLT_PFMET170_NoiseCleaned_v") != std::string::npos
-		    || TriggerNames[it].find("HLT_PFMET170_JetIdCleaned_v") != std::string::npos 
-		    || TriggerNames[it].find("HLT_PFMET100_PFMHT100_IDTight_v") != std::string::npos
-		    || TriggerNames[it].find("HLT_PFMET110_PFMHT110_IDTight_v") != std::string::npos
-		    || TriggerNames[it].find("HLT_PFMET120_PFMHT120_IDTight_v") != std::string::npos
-		    || TriggerNames[it].find("HLT_PFMET130_PFMHT130_IDTight_v") != std::string::npos
-		    || TriggerNames[it].find("HLT_PFMET140_PFMHT140_IDTight_v") != std::string::npos
-		    || TriggerNames[it].find("HLT_PFMET150_PFMHT150_IDTight_v") != std::string::npos
-		    ){
-		  */
-		  /* if(    TriggerNames[it].find("HLT_PFHT350_PFMET100_JetIdCleaned_v") != std::string::npos
-                     || TriggerNames[it].find("HLT_PFHT350_PFMET100_NoiseCleaned_v") != std::string::npos
-                     || TriggerNames[it].find("HLT_PFHT350_PFMET100_v") != std::string::npos ){
-	      */
-		  if( TriggerNames[it].find("HLT_PFHT300_PFMET100_v") != std::string::npos )
-		    {
+      const vector<TLorentzVector> &muonsLVec = tr->getVec<TLorentzVector>("muonsLVec");
+      const vector<double> &muonsRelIso = tr->getVec<double>("muonsRelIso");
+      const vector<double> &muonsMiniIso = tr->getVec<double>("muonsMiniIso");
+      const vector<double> &muonsMtw = tr->getVec<double>("muonsMtw"); 
+      const vector<int> & muonsFlagIDVec = tr->getVec<int>("muonsFlagMedium");
 
-		      if( PassTrigger[it] ) foundTrigger = true;
-		    }
-		}
-	      
-	      
-	      
-	    }
-	  if( !foundTrigger ) continue;
-	}
 
-      
-      const std::vector<TLorentzVector> & muonsLVec = tr->getVec<TLorentzVector>("muonsLVec");
-      const std::vector<double> & muonsRelIso = tr->getVec<double>("muonsRelIso");
-      const std::vector<double> & muonsMiniIso = tr->getVec<double>("muonsMiniIso");
-      const std::vector<double> & muonsMtw = tr->getVec<double>("muonsMtw");
-      const std::vector<int> & muonsFlagMedium = tr->getVec<int>("muonsFlagMedium");
       
       const std::vector<TLorentzVector> & elesLVec = tr->getVec<TLorentzVector>("elesLVec");
       const std::vector<double> & elesRelIso = tr->getVec<double>("elesRelIso");
       const std::vector<double> & elesMiniIso = tr->getVec<double>("elesMiniIso");
       const std::vector<double> & elesMtw = tr->getVec<double>("elesMtw");
+
       
       const std::vector<int> W_tau_prongsVec = sampleString.Contains("Data")? std::vector<int>() : tr->getVec<int>("W_tau_prongsVec");
       const std::vector<int> W_tau_emuVec = sampleString.Contains("Data")? std::vector<int>() : tr->getVec<int>("W_tau_emuVec");
       const std::vector<int> W_emuVec = sampleString.Contains("Data")? std::vector<int>() : tr->getVec<int>("W_emuVec");
+
       
       std::vector<int> emuVec_merge;
       emuVec_merge.reserve( W_emuVec.size() + W_tau_emuVec.size() ); 
@@ -251,15 +160,155 @@ int main(int argc, char* argv[]) {
       const std::vector<double> & recoJetsBtag_forTagger = tr->getVec<double>("recoJetsBtag_forTagger" + spec);
       
       
-      
+      // Base line without veto and complete baseline
       const bool passBaselineNoLepVeto = tr->getVar<bool>("passBaselineNoLepVeto" +spec);
       const bool passBaseline = tr->getVar<bool>("passBaseline" + spec);
+      if(!passBaselineNoLepVeto) continue;
+
+      int nElectrons = tr->getVar<int>("nElectrons_CUT"+spec);
+      int nMuons = tr->getVar<int>("nMuons_CUT"+spec);
+
+
+      // Internal evtWeight in the sample: default is 1.0 execept for MC samples with intrinsic weight, e.g., QCD flat sample.
+      double iniWeight = tr->getVar<double>("evtWeight");
+      double puWeight = 1.0; // currently set to be 1.0
+      double stored_weight = sampleString.Contains("Data") ? 1 : tr->getVar<double>("stored_weight");
+      int sign_of_stored_weight = (stored_weight > 0) ? 1 : ((stored_weight < 0) ? -1 : 0);
+      if( sign_of_stored_weight == 1 ) bh.h_cutFlow_aux->Fill("posSign", 1);
+      if( sign_of_stored_weight == -1 ) bh.h_cutFlow_aux->Fill("negSign", 1);
+      if( sign_of_stored_weight == 0 ) bh.h_cutFlow_aux->Fill("zero", 1);
+      double evtWeight = iniWeight >=0 ? iniWeight * puWeight * sign_of_stored_weight : iniWeight * puWeight;
+      scaleMC = evtWeight*scaleMC;
+
+
+      // Get branches out directly from what stored in the tree
+      const unsigned int & run = tr->getVar<unsigned int>("run"); 
+      const unsigned int & lumi = tr->getVar<unsigned int>("lumi"); 
+      const unsigned int & event = tr->getVar<unsigned int>("event");
+      /*      
+      if( isData && isblind && (!doSingleMuonCS || !doInvDphi) ){
+	if( run > 274240 ) continue;
+      }
+      */
+
+      if(doSingleMuonCS && isData)
+	{
+	  if ( run <= 278820 || run >= 279931) continue;
+	} 
+      double met ;
+      double metphi ;
+      TLorentzVector metLVec;
+      double genmet;
+      double genmetphi;
+      TLorentzVector genmetLVec;
+      if (!isData)
+	{
+	  const double & genmet_tmp = tr->getVar<double>("genmet");
+	  const double & genmetphi_tmp = tr->getVar<double>("genmetphi");
+	  genmet = (&genmet_tmp) != nullptr ? tr->getVar<double>("genmet") : 0;
+	  genmetphi = (&genmetphi_tmp) != nullptr ? tr->getVar<double>("genmetphi") : -999;
+	  
+	  if( (&genmet_tmp) != nullptr )
+	    {
+	      genmetLVec.SetPtEtaPhiM(tr->getVar<double>("genmet"), 0, tr->getVar<double>("genmetphi"), 0);
+	    }
       
-      const int searchBinIdx = SB.find_Binning_Index(nbJets, nTops, MT2, met);
+	  met = ( usegenmet && (&genmet_tmp) != nullptr )? genmet : tr->getVar<double>("met");
+	  metphi = ( usegenmet && (&genmet_tmp) != nullptr )? genmetphi : tr->getVar<double>("metphi");
+	  metLVec.SetPtEtaPhiM(met, 0, metphi, 0);
+	}
+      if(isData)
+	{
+	  met = tr->getVar<double>("met");
+	  metphi =  tr->getVar<double>("metphi");
+	  metLVec.SetPtEtaPhiM(met, 0, metphi, 0);
+	}
       
-      int cnt_eleTop =0, cnt_muTop =0, cnt_taumuTop =0, cnt_taueleTop =0, cnt_tauhadTop =0, cnt_allhadTop =0;
+      const int nbJets = tr->getVar<int>("cntCSVS"+spec), nTops = tr->getVar<int>("nTopCandSortedCnt"+spec );
+      const double MT2 = tr->getVar<double>("best_had_brJet_MT2"+spec );
+      const double HT = tr->getVar<double>("HT"+spec );
+      const int nJets = tr->getVar<int>("cntNJetsPt30Eta24"+spec );
+      const TLorentzVector mhtLVec = AnaFunctions::calcMHT(tr->getVec<TLorentzVector>("jetsLVec"), AnaConsts::pt30Arr);
+      const double MHT  = mhtLVec.Pt();
+      const std::vector<double> & dPhiVec = tr->getVec<double>("dPhiVec" + spec);
       
-      if (!passBaseline) continue;
+
+      const std::vector<std::string> & TriggerNames = tr->getVec<std::string>("TriggerNames");
+      const std::vector<int> & PassTrigger = tr->getVec<int>("PassTrigger");      
+      if(isData)
+	{
+	  bool foundTrigger = false;
+	  for(unsigned it=0; it<TriggerNames.size(); it++)
+	    {
+	      // Search Trigger
+	      if( sampleString.Contains("MET") )
+		{
+		  if(TriggerNames[it].find("HLT_PFMET170_NoiseCleaned_v") != std::string::npos
+		     || TriggerNames[it].find("HLT_PFMET170_JetIdCleaned_v") != std::string::npos 
+		     || TriggerNames[it].find("HLT_PFMET100_PFMHT100_IDTight_v") != std::string::npos
+		     || TriggerNames[it].find("HLT_PFMET110_PFMHT110_IDTight_v") != std::string::npos
+		     || TriggerNames[it].find("HLT_PFMET120_PFMHT120_IDTight_v") != std::string::npos
+		     || TriggerNames[it].find("HLT_PFMET130_PFMHT130_IDTight_v") != std::string::npos
+		     || TriggerNames[it].find("HLT_PFMET140_PFMHT140_IDTight_v") != std::string::npos
+		     || TriggerNames[it].find("HLT_PFMET150_PFMHT150_IDTight_v") != std::string::npos
+		     )
+		    {
+		      if( PassTrigger[it] ) foundTrigger = true;                                                                           
+		    }                                           
+		}
+	    }
+	  if( !foundTrigger ) continue;
+	}
+
+      // Create Single Muon CS
+      vector<TLorentzVector> isomuonsLVec;
+      vector<int> isomuonsIdxVec;
+      for(unsigned int im=0; im<muonsLVec.size(); im++)
+	{
+	  if( AnaFunctions::passMuon(muonsLVec.at(im), 
+				     muonsMiniIso.at(im), 
+				     muonsMtw.at(im), 
+				     muonsFlagIDVec.at(im),
+				     AnaConsts::muonsMiniIsoArr) )
+	    { 
+	      isomuonsLVec.push_back(muonsLVec.at(im)); isomuonsIdxVec.push_back(im); 
+	    }
+	}
+      
+      // Require one and only one muon
+      // Veto events with additional electrons (same veto criteria as baseline for electrons)
+      if( nMuons == 1 && nElectrons == AnaConsts::nElectronsSel )
+	{
+	  if( nMuons != isomuonsLVec.size() )
+	    { std::cout<<"ERROR ... mis-matching between veto muon and selected muon! Skipping..."<<std::endl; 
+	      continue; 
+	    }
+	  const TLorentzVector muLVec = isomuonsLVec.at(0);
+	  //Use only events where the muon is inside acceptance                                                                             
+	  if( muLVec.Pt() < ptMin) continue;
+	  if( fabs(muLVec.Eta()) > etaMax ) continue;
+
+
+	  FillDouble(bh.hMT2, MT2,scaleMC);
+	  FillDouble(bh.hMET, met, scaleMC);
+	  FillDouble(bh.hHT, HT, scaleMC);
+	  FillDouble(bh.hMHT, MHT, scaleMC);
+
+
+	  FillInt(bh.hNjets,nJets, scaleMC);
+	  FillInt(bh.hNtops,nTops, scaleMC);
+	  FillInt(bh.hNbjets,nbJets, scaleMC);
+
+
+
+
+	}
+      
+      //const int searchBinIdx = SB.find_Binning_Index(nbJets, nTops, MT2, met);
+      
+      //int cnt_eleTop =0, cnt_muTop =0, cnt_taumuTop =0, cnt_taueleTop =0, cnt_tauhadTop =0, cnt_allhadTop =0;
+      
+      /*
       
       FillDouble(bh.hMT2, MT2,scaleMC);
       FillDouble(bh.hMET, met, scaleMC);
@@ -274,6 +323,8 @@ int main(int argc, char* argv[]) {
       if(searchBinIdx != -1) bh.h_searchBinYields->Fill(searchBinIdx, scaleMC);
       
       Fill2D(bh.h2_nB_nT, nbJets, nTops, scaleMC);
+      */
+
       //cout << "nbJets  nTops   MT2   HT  :: " << nbJets <<  "\t" <<  nTops << "\t" << MT2 << "\t" << HT << endl;
     }
   
@@ -284,8 +335,8 @@ int main(int argc, char* argv[]) {
   bh.hNbjets->Write();
   bh.hNjets->Write();
   bh.hNtops->Write();
-  bh.h2_nB_nT->Write();
-  bh.h_searchBinYields->Write();
+  //bh.h2_nB_nT->Write();
+  //bh.h_searchBinYields->Write();
   bh.oFile->Close();
   
   fChain->Reset();
