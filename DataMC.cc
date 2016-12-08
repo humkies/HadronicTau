@@ -50,7 +50,7 @@ using namespace std;
 int main(int argc, char* argv[]) {
   if (argc < 5)
     {
-      std::cerr <<"Please give 5 arguments "<<"SubsampleName"<< " MaxEvent"<<" No. of Files to run"<<" StartFile"<<std::endl;
+      std::cerr <<"Please give 6 arguments "<<"SubsampleName"<< "DataMC_reweight.root" <<" MaxEvent"<<" No. of Files to run"<<" StartFile"<<std::endl;
       std::cerr <<" Valid configurations are " << std::endl;
       std::cerr <<" ./Closure TTbarInc 1000 0 1" << std::endl;
       return -1;
@@ -58,9 +58,10 @@ int main(int argc, char* argv[]) {
 
   // Manage arguments
   const char *subSampleName = argv[1];
-  const char *Maxevent = argv[2];
-  const  char *Stratfile = argv[4];
-  const  char *Filerun = argv[3];
+  const char *reweightFile = argv[2];
+  const char *Maxevent = argv[3];
+  const  char *Stratfile = argv[5];
+  const  char *Filerun = argv[4];
   
 
   const  int startfile = std::atoi(Stratfile);
@@ -68,15 +69,28 @@ int main(int argc, char* argv[]) {
   int maxEvent = std::atoi(Maxevent);
 
 
+
+  // NJets Reweighing
+  TString reweightFileT(reweightFile);
+  TFile* njetsWeighFile = new TFile(reweightFileT);
+  TH1D* Data_njets = (TH1D*)njetsWeighFile->Get("h1_nJets_Data");
+  TH1D* MC_njets = (TH1D*)njetsWeighFile->Get("h1_nJets_MC");
+  TH1D* Data_MC_njets = (TH1D*)Data_njets->Clone();
+  if(MC_njets) {Data_MC_njets->Divide(MC_njets);}
+
+
+
+
+
   // Prepare file list and finalize it
   TChain *fChain = 0;
   BaseHistogram bh;
   int stfile = int(startfile/filerun);
   bh.BookHistgram(subSampleName, stfile, spec1);
+
+  const string condor =  (argc == 7) ? argv[6]: "";
   
-  const string condor =  (argc == 6) ? argv[5]: "";
-  
-  AnaSamples::SampleSet ss = condor.empty()? AnaSamples::SampleSet():AnaSamples::SampleSet(argv[5]);
+  AnaSamples::SampleSet ss = condor.empty()? AnaSamples::SampleSet():AnaSamples::SampleSet(argv[6]);
   AnaSamples::SampleCollection sc(ss);
                                    
   double scaleMC = 1.;                                                                              
@@ -99,6 +113,8 @@ int main(int argc, char* argv[]) {
   
 
 
+  
+
 
   //BaselineVessel blvT3(tr, "Type3");
   //BaselineVessel blvICHEP(tr, "ICHEP");
@@ -115,6 +131,8 @@ int main(int argc, char* argv[]) {
   //Searchbin                                                                                                                                                                      
   SearchBins SB("SB_59_2016");
 
+
+
   // --- Analyse events --------------------------------------------
   std::cout<<"First loop begin: "<<std::endl;
   int entries = tr->getNEntries();
@@ -124,8 +142,9 @@ int main(int argc, char* argv[]) {
   cout<<"maxevent: "<<maxEvent<<endl;
   while(tr->getNextEvent())
     {
-
+     
       if(maxEvent>=0 && tr->getEvtNum() > maxEvent ) break;
+     
       if( tr->getEvtNum()-1 == 0 || tr->getEvtNum() == entries || (entries>=10 && (tr->getEvtNum()-1)%(entries/10) == 0) ) std::cout<<
 							     "\n   Processing the "<<tr->getEvtNum()-1<<"th event ..."<<std::endl;
       
@@ -180,6 +199,17 @@ int main(int argc, char* argv[]) {
       double evtWeight = iniWeight >=0 ? iniWeight * puWeight * sign_of_stored_weight : iniWeight * puWeight;
       scaleMC = evtWeight*scaleMC;
 
+      // Apply N Jets reweighing to MC
+
+      const int nJets = tr->getVar<int>("cntNJetsPt30Eta24"+spec );      
+      double njets_weight = 1.0;
+      if(!isData)
+	{
+	  njets_weight  = Data_MC_njets->GetBinContent(Data_MC_njets->FindBin(nJets));
+	  scaleMC = scaleMC*njets_weight;
+
+	  //cout << "scaleMC:   " << scaleMC << endl;
+	}
 
       // Get branches out directly from what stored in the tree
       const unsigned int & run = tr->getVar<unsigned int>("run"); 
@@ -227,7 +257,7 @@ int main(int argc, char* argv[]) {
       const int nbJets = tr->getVar<int>("cntCSVS"+spec), nTops = tr->getVar<int>("nTopCandSortedCnt"+spec );
       const double MT2 = tr->getVar<double>("best_had_brJet_MT2"+spec );
       const double HT = tr->getVar<double>("HT"+spec );
-      const int nJets = tr->getVar<int>("cntNJetsPt30Eta24"+spec );
+      //const int nJets = tr->getVar<int>("cntNJetsPt30Eta24"+spec );
       const TLorentzVector mhtLVec = AnaFunctions::calcMHT(tr->getVec<TLorentzVector>("jetsLVec"), AnaConsts::pt30Arr);
       const double MHT  = mhtLVec.Pt();
       const std::vector<double> & dPhiVec = tr->getVec<double>("dPhiVec" + spec);
@@ -337,8 +367,8 @@ int main(int argc, char* argv[]) {
   bh.hNtops->Write();
   //bh.h2_nB_nT->Write();
   //bh.h_searchBinYields->Write();
-  bh.oFile->Close();
   
+  bh.oFile->Close();
   fChain->Reset();
   return 0;
 }
